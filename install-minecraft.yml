@@ -2,7 +2,9 @@
 # Minecraft Server Ansible Playbook
 #
 # Author:: Pol Llovet (<pol.llovet@montana.edu>)
+# Author:: Edward Delaporte (edthedev.com)
 # Copyright 2013, Montana State University
+# Copyright 2014, Edward Delaporte
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,11 +19,15 @@
 # limitations under the License.
 #
 ---
-- hosts: minecraft
+- hosts: vagrant
+  gather_facts: No
+  user: vagrant
   sudo: yes
-  roles:
-    - common
-    - ansible-helper-dirs
+  #roles:
+  #  - common
+  #  - ansible-helper-dirs
+  vars:
+    - shared: /vagrant
   handlers:
     - name: restart iptables
       service: name=iptables state=restarted
@@ -34,12 +40,12 @@
         - install_minecraft
 
     - name: download java
-      get_url: "url='http://javadl.sun.com/webapps/download/AutoDL?BundleId=78696' dest={{ansible_files}}/jre-7u25-linux-x64.rpm"
+      get_url: "url='http://javadl.sun.com/webapps/download/AutoDL?BundleId=78696' dest={{shared}}/jre-7u25-linux-x64.rpm"
       tags:
         - install_java
 
     - name: install java
-      yum: "name={{ansible_files}}/jre-7u25-linux-x64.rpm"
+      yum: "name={{shared}}/jre-7u25-linux-x64.rpm"
       tags:
         - install_java
 
@@ -47,14 +53,14 @@
       user: name=minecraft
             group=nobody
             comment="Minecraft System User"
-            home="/var/lib/minecraft"
             shell="/bin/bash"
-            password="{{ users[0]['password'] }}"
+            #home="/var/lib/minecraft"
+            # password="{{ users[0]['password'] }}"
       tags:
         - install_minecraft
 
     - name: add authorized_key for minecraft user
-      authorized_key: "user=minecraft key='{{ users[0]['ssh_key'] }}'"
+      authorized_key: "user=minecraft key='id_rsa.pub'"
       tags:
         - install_minecraft
 
