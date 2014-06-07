@@ -1,0 +1,147 @@
+#
+# Minecraft Server Ansible Playbook
+#
+# Author:: Pol Llovet (<pol.llovet@montana.edu>)
+# Copyright 2013, Montana State University
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+---
+- hosts: minecraft
+  sudo: yes
+  roles:
+    - common
+    - ansible-helper-dirs
+  handlers:
+    - name: restart iptables
+      service: name=iptables state=restarted
+    - name: restart minecraft
+      service: name=minecraft state=restarted
+  tasks:
+    - name: install required packages
+      yum: name=screen
+      tags:
+        - install_minecraft
+
+    - name: download java
+      get_url: "url='http://javadl.sun.com/webapps/download/AutoDL?BundleId=78696' dest={{ansible_files}}/jre-7u25-linux-x64.rpm"
+      tags:
+        - install_java
+
+    - name: install java
+      yum: "name={{ansible_files}}/jre-7u25-linux-x64.rpm"
+      tags:
+        - install_java
+
+    - name: create minecraft user
+      user: name=minecraft
+            group=nobody
+            comment="Minecraft System User"
+            home="/var/lib/minecraft"
+            shell="/bin/bash"
+            password="{{ users[0]['password'] }}"
+      tags:
+        - install_minecraft
+
+    - name: add authorized_key for minecraft user
+      authorized_key: "user=minecraft key='{{ users[0]['ssh_key'] }}'"
+      tags:
+        - install_minecraft
+
+    - name: upload minecraft config files
+      template: src=minecraft/{{item}}
+            dest=~minecraft/{{item}}
+            owner=minecraft
+            group=nobody
+            mode=0644
+      with_items:
+        - admin.txt
+        - server.properties.cfg
+      register: cfg_files
+      notify: restart minecraft
+      tags:
+        - install_minecraft
+
+    # The server has its way with server.properties, so it is always different from local
+    - name: copy a server.properties only if the local one changes
+      template: src=minecraft/server.properties.cfg
+            dest=~minecraft/server.properties
+            owner=minecraft
+            group=nobody
+            mode=0644
+      when: cfg_files.changed
+      notify: restart minecraft
+      tags: 
+        - install_minecraft 
+
+    - name: install minecraft init script
+      copy: src=minecraft/minecraft.init 
+            dest=/etc/init.d/minecraft
+            owner=minecraft
+            group=nobody
+            mode=0755
+      tags:
+        - install_minecraft
+
+    - name: check to see if iptables is setup 
+      shell: /sbin/iptables -n -L INPUT | grep 3232 
+      register: dport_open
+      ignore_errors: true
+      tags:
+        - iptables
+
+    - name: update iptables to open required port
+      command: "/sbin/iptables {{item}}"
+      with_items:
+        - "-A INPUT -p udp -m state --state NEW -m udp --dport 3232 -j ACCEPT"
+        - "-A INPUT -p tcp -m state --state NEW -m tcp --dport 3232 -j ACCEPT"
+        - "-A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT"
+        - "-A INPUT -p icmp -j ACCEPT"
+        - "-A INPUT -i lo -j ACCEPT"
+        - "-A INPUT -p tcp -m state --state NEW -m tcp --dport 22 -j ACCEPT"
+        - "-A INPUT -j REJECT --reject-with icmp-host-prohibited"
+        - "-A FORWARD -j REJECT --reject-with icmp-host-prohibited"
+      when: dport_open | failed
+      register: update_iptables
+      notify: 
+        - restart iptables
+      tags:
+        - iptables
+
+    - name: save iptables
+      command: /sbin/service iptables save
+      tags:
+        - iptables
+
+    - name: download minecraft jar file
+      get_url: url=https://s3.amazonaws.com/Minecraft.Download/versions/1.6.2/minecraft_server.1.6.2.jar 
+               dest=~minecraft/minecraft_server.jar
+               owner=minecraft
+               group=nobody
+               mode=0755
+      notify: restart minecraft
+      tags:
+        - install_minecraft
+
+    - name: add minecraft init script to startup
+      service: name=minecraft enabled=yes
+      tags:
+        - install_minecraft
+
+    - name: create a cron entry for backup
+      cron: name='Minecraft Periodic Backup'
+            job='/etc/init.d/minecraft backup'
+            user=minecraft
+            minute='0,30'
+      tags:
+        - install_minecraft
