@@ -1,0 +1,5 @@
+---
+hosts: minecraft
+tasks:
+  - name: start
+    shell: service minecraft start
