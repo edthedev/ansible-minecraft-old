@@ -1,0 +1,14 @@
+---
+- hosts: minecraft
+  gather_facts: No
+  user: minecraft
+  sudo: no
+  vars:
+    - shared: /vagrant
+  handlers:
+    - name: restart minecraft
+      service: name=minecraft state=restarted
+  tasks:
+    - name: restart
+      shell: echo "Restarting."
+      notify: restart minecraft
