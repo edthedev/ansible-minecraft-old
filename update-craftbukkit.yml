@@ -12,6 +12,4 @@
      copy: src={{ craftbukkit_jar }} dest="{{ minecraft_root }}/craftbukkit.jar" backup=yes
      notify: restart minecraft
   handlers:
-   - name: restart minecraft
-     shell: service minecraft start
-     sudo: no
+   - include: handlers/minecraft_handlers.yml

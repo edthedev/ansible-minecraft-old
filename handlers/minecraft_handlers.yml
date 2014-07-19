@@ -1,0 +1,7 @@
+---
+# - name: restart minecraft
+#   shell: service minecraft start
+#   sudo: no
+  - name: restart minecraft
+    service: name=minecraft state=restarted
+    sudo: no
