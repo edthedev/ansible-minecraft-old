@@ -9,9 +9,9 @@
    - minecraft_root: "/home/minecraft/craftbukkit/main"
   tasks:
    - name: upload newest .jar file
-     copy: src={{ craftbukkit_jar }} dest={{ minecraft_root }} backup=yes
+     copy: src={{ craftbukkit_jar }} dest="{{ minecraft_root }}/craftbukkit.jar" backup=yes
      notify: restart minecraft
   handlers:
    - name: restart minecraft
      shell: service minecraft start
-     sudo: yes
+     sudo: no
