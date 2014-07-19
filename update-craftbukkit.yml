@@ -1,0 +1,13 @@
+---
+hosts: minecraft
+vars:
+  - files: files
+  - craftbukkit_jar: "{{ files }}/craftbukkit.jar"
+  - minecraft_root: "/home/minecraft/craftbukkit/main"
+tasks:
+  - name: upload newest .jar file
+    copy: src={{ craftbukkit_jar }} dest={{ minecraft_root }} backup=yes
+    notify: restart minecraft
+hanlders:
+  - name: restart minecraft
+    shell: service minecraft start
